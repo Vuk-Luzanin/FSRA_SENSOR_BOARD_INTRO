@@ -41,6 +41,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
+DMA_HandleTypeDef hdma_adc;
 
 UART_HandleTypeDef huart2;
 
@@ -53,6 +54,7 @@ static char buffer[200]; // Declare buffer globally
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC_Init(void);
 /* USER CODE BEGIN PFP */
@@ -68,7 +70,7 @@ static void MX_ADC_Init(void);
 void initPins() {
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 }
-/*
+
 int readPinState(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin) {
     return HAL_GPIO_ReadPin(GPIOx, GPIO_Pin);
 }
@@ -100,49 +102,6 @@ void potentiometer() {
 		HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
 	}
 	HAL_Delay(500);
-}*/
-
-#define LN2 0.693147
-
-// Function to calculate ln(1 + x) using Taylor series
-double ln_taylor(double x, int terms) {
-    double result = 0.0;
-    double term = x;
-    int i;
-
-    // Sum the series: x - x^2/2 + x^3/3 - x^4/4 + ...
-    for (i = 1; i <= terms; i++) {
-        result += (i % 2 == 1 ? 1 : -1) * term / i; // Alternate signs
-        term *= x; // Next power of x
-    }
-    return result;
-}
-
-// Function to calculate natural logarithm ln(y)
-double calculate_ln(double y, int terms) {
-    if (y <= 0.0) {
-        return -1.0; // Invalid input, ln is undefined for non-positive numbers
-    }
-
-    int n = 0;
-    double z = y;
-
-    // Scale y to range [0.5, 2) using powers of 2
-    while (z > 2.0) {
-        z /= 2.0;
-        n++;
-    }
-    while (z < 0.5) {
-        z *= 2.0;
-        n--;
-    }
-
-    // Now z is close to 1. Use ln(z) = ln((z-1)/(z+1)) * 2
-    double x = (z - 1) / (z + 1); // Transformation for better convergence
-    double ln_z = 2 * ln_taylor(x, terms);
-
-    // Combine results: ln(y) = n * ln(2) + ln(z)
-    return n * LN2 + ln_z;
 }
 
 
@@ -152,22 +111,21 @@ void thermistor() {
 	float raw = HAL_ADC_GetValue(&hadc);
 	raw = (raw / 4095.0) * 3.3;
 	float Rt = 10000.0 * raw / (3.3 - raw);
-	static float beta = 4300.0;
-	static float R0 = 8000.0;
-	static float T0 = 300.0;
+	float beta = 4300.0;
+	float R0 = 8000.0;
+	float T0 = 298.15;	// T0 in Kelvin (25°C)
 
-	float temp = 0;//beta / (calculate_ln(Rt/R0, 5) + beta/T0);
-	int t = (int)(temp - 273);
+	float temp = beta / (log(Rt/R0) + beta/T0);
+    float t = (temp - 273.15);
 
-	// Convert to string and print
-	//sprintf((char*)buffer,"%d C\n", t);
-	char * a = "radi";
-	//HAL_Delay(500);
-	HAL_UART_Transmit(&huart2, a, strlen(buffer), HAL_MAX_DELAY);
-
-	HAL_Delay(100);
-	HAL_ADC_Stop(&hadc);
+    // Convert to string and print
+    sprintf((char*)buffer,"%.2f C\n", t);
+    HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
+    HAL_Delay(100);
+    HAL_ADC_Stop(&hadc);
 }
+
+
 
 
 /* USER CODE END 0 */
@@ -201,6 +159,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_ADC_Init();
   /* USER CODE BEGIN 2 */
@@ -212,12 +171,12 @@ int main(void)
 
   initPins();
 
+
   while (1)
   {
-
 	  //activateLEDusingButton();
 
-	  //potentiometer();
+	  potentiometer();
 
 	  thermistor();
 
@@ -312,6 +271,14 @@ static void MX_ADC_Init(void)
   {
     Error_Handler();
   }
+
+  /** Configure for the selected ADC regular channel to be converted.
+  */
+  sConfig.Channel = ADC_CHANNEL_8;
+  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC_Init 2 */
 
   /* USER CODE END ADC_Init 2 */
@@ -334,7 +301,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 38400;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -350,6 +317,22 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
@@ -371,12 +354,6 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PB0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB4 */
   GPIO_InitStruct.Pin = GPIO_PIN_4;
