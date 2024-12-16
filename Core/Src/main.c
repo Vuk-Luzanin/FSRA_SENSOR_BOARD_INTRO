@@ -47,7 +47,14 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 	// private variables
-static char buffer[200]; // Declare buffer globally
+// for UART
+static char buffer[200]; // Declare buffer globally for UART messages
+
+// for ADC readings
+volatile uint16_t adcResultsDMA[2];
+const int adcChannelCount = sizeof(adcResultsDMA) / sizeof(adcResultsDMA[0]);		// nice way of writing number of ADC channels
+volatile int adcConversionComplete = 0;			// set by callback
+
 
 /* USER CODE END PV */
 
@@ -64,51 +71,70 @@ static void MX_ADC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Sends data from printf to USART2
 
-
-void initPins() {
+void initPins()
+{
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 }
 
-int readPinState(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin) {
+int readPinState(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
+{
     return HAL_GPIO_ReadPin(GPIOx, GPIO_Pin);
 }
 
-void writePinState(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, GPIO_PinState value) {
+void writePinState(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, GPIO_PinState value)
+{
     HAL_GPIO_WritePin(GPIOx, GPIO_Pin, value);
 }
 
-void toggleLED() {
+void toggleLED()
+{
 	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
 	HAL_Delay(500);
 }
 
-void activateLEDusingButton() {
-	if (readPinState(GPIOA, GPIO_PIN_1) == 1) {
+void activateLEDusingButton()
+{
+	if (readPinState(GPIOA, GPIO_PIN_1) == 1)
+	{
 		writePinState(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
-	} else {
+	} else
+	{
 		writePinState(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 	}
 }
 
-void potentiometer() {
+
+// for reading multiple ADC channels, need to use DMA
+
+// override function to set adcConversionComplete flag and end conversion
+// _weak means that it can be overwritten
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	adcConversionComplete = 1;
+}
+
+// In DMA settings - Memory checked -> increment memory on every writing
+void potentiometer(uint16_t adcValue)
+{
 	// resolution is 12 bit, so we need 16 bits
 	HAL_ADC_Start(&hadc);		//starts  ADS on STM
-	if (HAL_ADC_PollForConversion(&hadc, 20) == HAL_OK) {		// poll method for conversion
+
+	if (HAL_ADC_PollForConversion(&hadc, 20) == HAL_OK)
+	{		// wait until conversion is over
 		uint16_t n = HAL_ADC_GetValue(&hadc);		// receiving 12 bits, so we use 16 bits
 		// Convert to string and print
 		sprintf((char*)buffer,"ADC Value: %hu\n", n);
 		HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
 	}
 	HAL_Delay(500);
+	HAL_ADC_Stop(&hadc);
 }
 
 
-void thermistor() {
-	HAL_ADC_Start(&hadc);
-	HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-	float raw = HAL_ADC_GetValue(&hadc);
+float thermistor(uint16_t adcValue)
+{
+	float raw = (float) adcValue;
 	raw = (raw / 4095.0) * 3.3;
 	float Rt = 10000.0 * raw / (3.3 - raw);
 	float beta = 4300.0;
@@ -118,11 +144,7 @@ void thermistor() {
 	float temp = beta / (log(Rt/R0) + beta/T0);
     float t = (temp - 273.15);
 
-    // Convert to string and print
-    sprintf((char*)buffer,"%.2f C\n", t);
-    HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
-    HAL_Delay(100);
-    HAL_ADC_Stop(&hadc);
+    return t;
 }
 
 
@@ -176,9 +198,22 @@ int main(void)
   {
 	  //activateLEDusingButton();
 
-	  potentiometer();
+	  // ADC READING
+	  // hadc is adc converter
+	  HAL_ADC_Start_DMA(&hadc, (uint32_t) adcResultsDMA, adcChannelCount);
 
-	  thermistor();
+	  // adcConversionComplete will be set in HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) function, that we are going to override
+
+	  while (adcConversionComplete == 0) {}
+
+	  adcConversionComplete = 0; 	// to be ready for next conversion
+
+	  float temp = thermistor(adcResultsDMA[0]);		// thermistor has bigger priority (smaller pin value)
+	  sprintf((char*)buffer,"Temperature: %.2f, Potentiometer: %hu\n", temp, adcResultsDMA[1]);
+	  HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
+	  HAL_Delay(100);
+
+
 
 
     /* USER CODE END WHILE */
