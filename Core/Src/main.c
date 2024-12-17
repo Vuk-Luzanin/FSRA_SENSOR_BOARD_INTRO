@@ -43,6 +43,8 @@
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
 
+I2C_HandleTypeDef hi2c1;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -56,6 +58,29 @@ const int adcChannelCount = sizeof(adcResultsDMA) / sizeof(adcResultsDMA[0]);		/
 volatile int adcConversionComplete = 0;			// set by callback
 
 
+// Accelerometer_lsm303dlhc constants
+
+// control registers
+static const uint8_t CTRL_REG1_A       = 0x20;
+static const uint8_t CTRL_REG2_A     = 0x21;
+static const uint8_t CTRL_REG3_A     = 0x22;
+static const uint8_t CTRL_REG4_A       = 0x23;
+
+static const uint8_t ODR_400Hz = 0b0111 << 4;	// 400Hz
+static const uint8_t LPen      = 0b0001 << 3;	// Low Power
+static const uint8_t Zen       = 0b0001 << 2;	// activates sensor for z axis
+static const uint8_t Yen       = 0b0001 << 1;
+static const uint8_t Xen       = 0b0001 << 0;
+static const uint8_t BDU       = 0b01 << 7;		// (Block Data Update) - locks data until it is read
+static const uint8_t FS_4G     = 0b01 << 4;		// acceleration in ±4g
+static const uint8_t HR        = 0b01 << 3;		// HR (High Resolution)
+static const uint8_t OUT_X_L_A       = 0x28;	// base register - lower byte of X
+
+// I2C addresses
+static const uint8_t LA_ADDRESS      = 0x32;	// i2c address of accelerometer
+// I2C READING
+uint8_t i2cData[6]; 		// Buffer for 6 8-bit registers
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,6 +89,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -147,7 +173,118 @@ float thermistor(uint16_t adcValue)
     return t;
 }
 
+void readMultipleADC()
+{
+	// hadc is adc converter
+	HAL_ADC_Start_DMA(&hadc, (uint32_t) adcResultsDMA, adcChannelCount);
 
+	// adcConversionComplete will be set in HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) function, that we are going to override
+
+	while (adcConversionComplete == 0) {}
+
+	adcConversionComplete = 0; 	// to be ready for next conversion
+
+	// potentiometer -> pin D3
+	// thermistor -> pin A0
+
+	float temp = thermistor(adcResultsDMA[0]);		// thermistor has bigger priority (smaller pin value)
+	sprintf((char*)buffer,"Temperature: %.2f, Potentiometer: %hu\n", temp, adcResultsDMA[1]);
+	HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
+	HAL_Delay(100);
+}
+
+// linear acceleration
+//for Compass click - Mikroelektronika
+// https://github.com/z49x2vmq/lsm303/blob/master/lsm303dlhc.h
+//https://z49x2vmq.github.io/2018/05/26/lsm303-stm32-hal/
+void lsm303dlhc_init_la()
+{
+
+	// 2-dim array for initialization
+	// 1 row: 8 bit register address, 8 bit value to write on that address
+    uint8_t init[2][2] =
+    {
+        {CTRL_REG1_A, ODR_400Hz | Xen | Yen | Zen},			// 400Hz,Low Power,Xen, Yen, Zen activates sensor for all 3 axes
+		{CTRL_REG2_A, 0},
+		{CTRL_REG3_A, 0},
+        {CTRL_REG4_A, FS_4G | HR}								// BDU (Block Data Update) - locks data until it is read, FS_4G - acceleration in ±4g, HR (High Resolution)
+    };
+
+    //sends first row of init
+    if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, init[0], 2, HAL_MAX_DELAY) != HAL_OK)	// 2 is number of bytes that will be sent
+    {
+    	 return;
+    }
+    //sends second row of init
+    if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, init[1], 2, HAL_MAX_DELAY) != HAL_OK)
+    {
+    	return;
+    }
+    //sends third row of init
+	if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, init[2], 2, HAL_MAX_DELAY) != HAL_OK)
+	{
+		return;
+	}
+    //sends 4. row of init
+	if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, init[3], 2, HAL_MAX_DELAY) != HAL_OK)
+	{
+		return;
+	}
+}
+
+
+/*
+Linear Acceleration Representation
++-----------------+-----------------+-----------------+
+|        X        |        Y        |        Z        |
++-----------------+-----------------+-----------------+
+| buf[0] | buf[1] | buf[2] | buf[3] | buf[4] | buf[5] |
++--------+--------+--------+--------+--------+--------+
+| X_LOW  | X_HIGH | Y_LOW  | Y_HIGH | Z_LOW  | Z_HIGH |
++--------+--------+--------+--------+--------+--------+
+*/
+
+void lsm303dlhc_read_la()
+{
+    uint8_t reg = OUT_X_L_A | 0b10000000;		// register from which we read data
+    // 0b10000000 - sets biggetst bit on 1 -> activates auto-increment on reading
+
+    //we say that we want to read data from address in reg in the future
+    if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, &reg, 1, 1000) != HAL_OK)		// 1000 is timeout
+    {
+        return;
+    }
+
+    // receive data -> all three axes
+    if (HAL_I2C_Master_Receive(&hi2c1, LA_ADDRESS, i2cData, 6, 1000) != HAL_OK)
+    {
+        return;
+    }
+
+    // process data
+    int16_t x = i2cData[1] << 8 | i2cData[0];
+    int16_t y = i2cData[3] << 8 | i2cData[2];
+    int16_t z = i2cData[5] << 8 | i2cData[4];
+
+    sprintf(buffer, "Linear Accelerometer (raw data): X value: %06d, Y value: %06d, Z value: %06d\n", x, y, z);
+    HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
+
+    float x1 = x / 8192.0;
+    x1 *= 9.81;
+    float y1 = y / 8192.0;
+	y1 *= 9.81;
+	float z1 = z / 8192.0;
+	z1 *= 9.81;
+
+    sprintf(buffer, "Linear Accelerometer (in m/s^2): X value: %.2f, Y value: %.2f, Z value: %.2f\n\n", x1, y1, z1);
+    HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
+    HAL_Delay(500);
+
+    // Values:
+    // when stanging ideal is x=0, y=0, z=8192
+    // ubrzanje u g je: a = sirova_vrednost/8192
+    // ubrzanje u m/s2 je: a = g*9.81
+}
 
 
 /* USER CODE END 0 */
@@ -184,6 +321,7 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_ADC_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   /* USER CODE END 2 */
 
@@ -193,25 +331,20 @@ int main(void)
 
   initPins();
 
+  lsm303dlhc_init_la();
+
 
   while (1)
   {
+	  // Digital reading and writing
 	  //activateLEDusingButton();
 
 	  // ADC READING
-	  // hadc is adc converter
-	  HAL_ADC_Start_DMA(&hadc, (uint32_t) adcResultsDMA, adcChannelCount);
+	  //readMultipleADC();
 
-	  // adcConversionComplete will be set in HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) function, that we are going to override
+	  // I2C reading of accelerometer
+	  lsm303dlhc_read_la();
 
-	  while (adcConversionComplete == 0) {}
-
-	  adcConversionComplete = 0; 	// to be ready for next conversion
-
-	  float temp = thermistor(adcResultsDMA[0]);		// thermistor has bigger priority (smaller pin value)
-	  sprintf((char*)buffer,"Temperature: %.2f, Potentiometer: %hu\n", temp, adcResultsDMA[1]);
-	  HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
-	  HAL_Delay(100);
 
 
 
@@ -231,6 +364,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -253,6 +387,12 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1;
+  PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
@@ -317,6 +457,54 @@ static void MX_ADC_Init(void)
   /* USER CODE BEGIN ADC_Init 2 */
 
   /* USER CODE END ADC_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x0010020A;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 
@@ -388,7 +576,23 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(ActivateLed_GPIO_Port, ActivateLed_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : ReadButton_Pin */
+  GPIO_InitStruct.Pin = ReadButton_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(ReadButton_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : ActivateLed_Pin */
+  GPIO_InitStruct.Pin = ActivateLed_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(ActivateLed_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB4 */
   GPIO_InitStruct.Pin = GPIO_PIN_4;

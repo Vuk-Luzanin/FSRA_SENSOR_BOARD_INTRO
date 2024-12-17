@@ -59,6 +59,14 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define MCO_Pin GPIO_PIN_0
 #define MCO_GPIO_Port GPIOF
+#define Thermistor_Pin GPIO_PIN_0
+#define Thermistor_GPIO_Port GPIOA
+#define ReadButton_Pin GPIO_PIN_1
+#define ReadButton_GPIO_Port GPIOA
+#define ActivateLed_Pin GPIO_PIN_4
+#define ActivateLed_GPIO_Port GPIOA
+#define Potentiometer_Pin GPIO_PIN_0
+#define Potentiometer_GPIO_Port GPIOB
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
