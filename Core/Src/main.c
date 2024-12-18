@@ -61,23 +61,28 @@ volatile int adcConversionComplete = 0;			// set by callback
 // Accelerometer_lsm303dlhc constants
 
 // control registers
-static const uint8_t CTRL_REG1_A       = 0x20;
+static const uint8_t CTRL_REG1_A   	 = 0x20;
 static const uint8_t CTRL_REG2_A     = 0x21;
 static const uint8_t CTRL_REG3_A     = 0x22;
-static const uint8_t CTRL_REG4_A       = 0x23;
+static const uint8_t CTRL_REG4_A     = 0x23;
+static const uint8_t CTRL_REG5_A     = 0x24;
+static const uint8_t CTRL_REG6_A     = 0x25;
 
-static const uint8_t ODR_400Hz = 0b0111 << 4;	// 400Hz
-static const uint8_t LPen      = 0b0001 << 3;	// Low Power
-static const uint8_t Zen       = 0b0001 << 2;	// activates sensor for z axis
-static const uint8_t Yen       = 0b0001 << 1;
-static const uint8_t Xen       = 0b0001 << 0;
-static const uint8_t BDU       = 0b01 << 7;		// (Block Data Update) - locks data until it is read
-static const uint8_t FS_4G     = 0b01 << 4;		// acceleration in ±4g
-static const uint8_t HR        = 0b01 << 3;		// HR (High Resolution)
-static const uint8_t OUT_X_L_A       = 0x28;	// base register - lower byte of X
+static const uint8_t ODR_400Hz       = 0b0111 << 4;	// 400Hz
+static const uint8_t LPen      		 = 0b0001 << 3;	// Low Power
+static const uint8_t Zen       		 = 0b0001 << 2;	// activates sensor for z axis
+static const uint8_t Yen       		 = 0b0001 << 1;
+static const uint8_t Xen       		 = 0b0001 << 0;
+static const uint8_t BDU       		 = 0b01 << 7;		// (Block Data Update) - locks data until it is read
+static const uint8_t FS_2G     		 = 0b00 << 4;  // +-2g
+static const uint8_t FS_4G      	 = 0b01 << 4;  // +-4g
+static const uint8_t FS_8G       	 = 0b10 << 4;  // +-8g
+static const uint8_t FS_16G    		 = 0b11 << 4;  // +-16g
+static const uint8_t HR        		 = 0b01 << 3;		// HR (High Resolution)
+static const uint8_t OUT_X_L_A 		 = 0x28;	// base register - lower byte of X
 
 // I2C addresses
-static const uint8_t LA_ADDRESS      = 0x32;	// i2c address of accelerometer
+static const uint8_t LA_ADDRESS= 0x32;	// i2c address of accelerometer
 // I2C READING
 uint8_t i2cData[6]; 		// Buffer for 6 8-bit registers
 
@@ -202,12 +207,15 @@ void lsm303dlhc_init_la()
 
 	// 2-dim array for initialization
 	// 1 row: 8 bit register address, 8 bit value to write on that address
-    uint8_t init[2][2] =
+	// IMPORTANT - initialize other control registers to 0
+    uint8_t init[6][2] =
     {
         {CTRL_REG1_A, ODR_400Hz | Xen | Yen | Zen},			// 400Hz,Low Power,Xen, Yen, Zen activates sensor for all 3 axes
 		{CTRL_REG2_A, 0},
 		{CTRL_REG3_A, 0},
-        {CTRL_REG4_A, FS_4G | HR}								// BDU (Block Data Update) - locks data until it is read, FS_4G - acceleration in ±4g, HR (High Resolution)
+        {CTRL_REG4_A, FS_4G | HR},								// BDU (Block Data Update) - locks data until it is read, FS_4G - acceleration in ±4g, HR (High Resolution)
+		{CTRL_REG5_A, 0},
+		{CTRL_REG6_A, 0}
     };
 
     //sends first row of init
@@ -225,8 +233,13 @@ void lsm303dlhc_init_la()
 	{
 		return;
 	}
-    //sends 4. row of init
+    //sends fourth row of init
 	if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, init[3], 2, HAL_MAX_DELAY) != HAL_OK)
+	{
+		return;
+	}
+	//sends fifth row of init
+	if (HAL_I2C_Master_Transmit(&hi2c1, LA_ADDRESS, init[4], 2, HAL_MAX_DELAY) != HAL_OK)
 	{
 		return;
 	}
@@ -269,6 +282,13 @@ void lsm303dlhc_read_la()
     sprintf(buffer, "Linear Accelerometer (raw data): X value: %06d, Y value: %06d, Z value: %06d\n", x, y, z);
     HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
 
+    // Values:
+	// when stanging ideal is x=0, y=0, z=8192 (2^13)
+    // 16 represents raw value in range of ±4g
+    // highest bit (15) is reserved for sign, and rest is value, so 2^13 is 1
+	// ubrzanje u g je: a = sirova_vrednost/8192
+	// ubrzanje u m/s2 je: a = g*9.81
+
     float x1 = x / 8192.0;
     x1 *= 9.81;
     float y1 = y / 8192.0;
@@ -278,12 +298,7 @@ void lsm303dlhc_read_la()
 
     sprintf(buffer, "Linear Accelerometer (in m/s^2): X value: %.2f, Y value: %.2f, Z value: %.2f\n\n", x1, y1, z1);
     HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
-    HAL_Delay(500);
-
-    // Values:
-    // when stanging ideal is x=0, y=0, z=8192
-    // ubrzanje u g je: a = sirova_vrednost/8192
-    // ubrzanje u m/s2 je: a = g*9.81
+    HAL_Delay(100);
 }
 
 
@@ -339,7 +354,7 @@ int main(void)
 	  // Digital reading and writing
 	  //activateLEDusingButton();
 
-	  // ADC READING
+	  // ADC READING - Potentiometer and Thermistor
 	  //readMultipleADC();
 
 	  // I2C reading of accelerometer
