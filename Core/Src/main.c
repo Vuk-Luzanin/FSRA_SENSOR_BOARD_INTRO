@@ -101,7 +101,7 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+// in this project, STM32 NUCLEO-F042K6 is used
 
 void initPins()
 {
