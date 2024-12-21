@@ -1,4 +1,4 @@
-# STM32 Project: Digital Inputs, ADC, and Accelerometer
+# 🚀 STM32 Project: Digital Inputs, ADC, and Accelerometer
 
 This project implements the following functionalities using an STM32 microcontroller:  
 1. Reading a digital signal to activate an LED.  
@@ -7,7 +7,7 @@ This project implements the following functionalities using an STM32 microcontro
 
 ---
 
-## Features
+## ✨ Features
 1. **Digital Signal and LED:**  
    - The microcontroller reads a digital input signal.  
    - If the signal is active (HIGH), the LED is turned on.  
@@ -24,7 +24,7 @@ This project implements the following functionalities using an STM32 microcontro
 
 ---
 
-## Setup
+## 🛠 Setup
 ### Hardware Configuration
 - Connect the thermistor and potentiometer to the appropriate ADC channels.  
 - Pin assignments are specified in the `.ioc` file, which can be opened using STM32CubeMX.  
@@ -40,9 +40,9 @@ This project implements the following functionalities using an STM32 microcontro
 
 ---
 
-## Running the Project
+## ▶️ Running the Project
 1. Power up the STM32 NUCLEO-F042K6 development board.  
 2. Observe the following outputs on the serial terminal:  
-   - Status of the digital signal and LED.  
-   - ADC values from the thermistor and potentiometer.  
-   - Acceleration values in X, Y, and Z axes.  
+   - 🔴 Status of the digital signal and LED.  
+   - 📊 ADC values from the thermistor and potentiometer.  
+   - 🧭 Acceleration values in X, Y, and Z axes.  
