@@ -4277,38 +4277,38 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_line    0x0000f4c3      0xdb9 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc_ex.o
  .debug_line    0x0001027c     0x42e5 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_uart.o
 
-.debug_str      0x00000000    0x8f288
- .debug_str     0x00000000    0x871b1 ./Core/Src/main.o
-                              0x87603 (size before relaxing)
- .debug_str     0x000871b1       0xcb ./Core/Src/stm32f0xx_hal_msp.o
+.debug_str      0x00000000    0x8f2c9
+ .debug_str     0x00000000    0x871af ./Core/Src/main.o
+                              0x87601 (size before relaxing)
+ .debug_str     0x000871af      0x10e ./Core/Src/stm32f0xx_hal_msp.o
                               0x86e57 (size before relaxing)
- .debug_str     0x0008727c       0x95 ./Core/Src/stm32f0xx_it.o
+ .debug_str     0x000872bd       0x95 ./Core/Src/stm32f0xx_it.o
                               0x866b5 (size before relaxing)
- .debug_str     0x00087311     0x5792 ./Core/Src/syscalls.o
+ .debug_str     0x00087352     0x5792 ./Core/Src/syscalls.o
                                0x97bf (size before relaxing)
- .debug_str     0x0008caa3       0x6b ./Core/Src/sysmem.o
+ .debug_str     0x0008cae4       0x6b ./Core/Src/sysmem.o
                                0x5fd7 (size before relaxing)
- .debug_str     0x0008cb0e       0x99 ./Core/Src/system_stm32f0xx.o
+ .debug_str     0x0008cb4f       0x99 ./Core/Src/system_stm32f0xx.o
                               0x863c0 (size before relaxing)
- .debug_str     0x0008cba7      0x375 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
+ .debug_str     0x0008cbe8      0x375 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.o
                               0x86972 (size before relaxing)
- .debug_str     0x0008cf1c      0x315 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_adc.o
+ .debug_str     0x0008cf5d      0x315 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_adc.o
                               0x86acd (size before relaxing)
- .debug_str     0x0008d231      0x197 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_cortex.o
+ .debug_str     0x0008d272      0x197 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_cortex.o
                               0x86755 (size before relaxing)
- .debug_str     0x0008d3c8      0x1fa ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_dma.o
+ .debug_str     0x0008d409      0x1fa ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_dma.o
                               0x86766 (size before relaxing)
- .debug_str     0x0008d5c2       0xda ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_gpio.o
+ .debug_str     0x0008d603       0xda ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_gpio.o
                               0x86553 (size before relaxing)
- .debug_str     0x0008d69c      0xe14 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_i2c.o
+ .debug_str     0x0008d6dd      0xe14 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_i2c.o
                               0x87710 (size before relaxing)
- .debug_str     0x0008e4b0       0xb8 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_i2c_ex.o
+ .debug_str     0x0008e4f1       0xb8 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_i2c_ex.o
                               0x86910 (size before relaxing)
- .debug_str     0x0008e568      0x20f ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc.o
+ .debug_str     0x0008e5a9      0x20f ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc.o
                               0x86807 (size before relaxing)
- .debug_str     0x0008e777      0x2b8 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc_ex.o
+ .debug_str     0x0008e7b8      0x2b8 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc_ex.o
                               0x867aa (size before relaxing)
- .debug_str     0x0008ea2f      0x859 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_uart.o
+ .debug_str     0x0008ea70      0x859 ./Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_uart.o
                               0x87124 (size before relaxing)
 
 .comment        0x00000000       0x43

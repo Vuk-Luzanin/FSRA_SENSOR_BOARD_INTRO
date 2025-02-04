@@ -298,7 +298,7 @@ void lsm303dlhc_read_la()
 
     sprintf(buffer, "Linear Accelerometer (in m/s^2): X value: %.2f, Y value: %.2f, Z value: %.2f\n\n", x1, y1, z1);
     HAL_UART_Transmit(&huart2, buffer, strlen(buffer), HAL_MAX_DELAY);
-    HAL_Delay(100);
+    HAL_Delay(200);
 }
 
 
@@ -344,9 +344,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
 
+  // INITIALIZATION BEFORE LOOP
   initPins();
 
-  lsm303dlhc_init_la();
+  //call only when Compass click is connected (when accelerometer is connected)
+  //lsm303dlhc_init_la();
 
 
   while (1)
@@ -354,12 +356,13 @@ int main(void)
 	  // Digital reading and writing
 	  //activateLEDusingButton();
 
+	  //toggleLED();
+
 	  // ADC READING - Potentiometer and Thermistor
-	  //readMultipleADC();
+	  readMultipleADC();
 
 	  // I2C reading of accelerometer
-	  lsm303dlhc_read_la();
-
+	  //lsm303dlhc_read_la();
 
 
 
