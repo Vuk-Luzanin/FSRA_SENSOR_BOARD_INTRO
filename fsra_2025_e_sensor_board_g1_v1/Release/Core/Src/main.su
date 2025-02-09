@@ -1,0 +1,6 @@
+../Core/Src/main.c:109:6:CAN_Transmit	8	static
+../Core/Src/main.c:243:6:lsm303dlhc_init_la	40	static
+../Core/Src/main.c:296:6:lsm303dlhc_read_la	64	static
+../Core/Src/main.c:436:6:SystemClock_Config	104	static,ignoring_inline_asm
+../Core/Src/main.c:365:5:main	48	static,ignoring_inline_asm
+../Core/Src/main.c:727:6:Error_Handler	0	static,ignoring_inline_asm

@@ -1,0 +1,12 @@
+../Core/Src/main.c:66:6:configureFilter	0	static
+../Core/Src/main.c:90:6:UART_Print	8	static
+../Core/Src/main.c:101:6:HAL_CAN_RxFifo0MsgPendingCallback	8	static,ignoring_inline_asm
+../Core/Src/main.c:120:6:lcd_send_data	24	static
+../Core/Src/main.c:143:6:lcd_send_cmd	24	static
+../Core/Src/main.c:159:6:lcd_init	8	static
+../Core/Src/main.c:184:6:lcd_send_string	8	static
+../Core/Src/main.c:188:6:setCursor	8	static
+../Core/Src/main.c:198:6:writeOnLCD	40	static
+../Core/Src/main.c:364:6:SystemClock_Config	88	static,ignoring_inline_asm
+../Core/Src/main.c:220:5:main	88	static,ignoring_inline_asm
+../Core/Src/main.c:414:6:Error_Handler	0	static,ignoring_inline_asm
